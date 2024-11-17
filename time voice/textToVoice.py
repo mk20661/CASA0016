@@ -1,8 +1,5 @@
 from gtts import gTTS
 
-# 要转换的文本
-
-from gtts import gTTS
 
 # 循环从 1 到 59 生成语音
 for i in range(1, 60):
