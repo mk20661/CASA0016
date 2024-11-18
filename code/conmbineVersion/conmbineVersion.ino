@@ -18,8 +18,8 @@ int lightSensorPin = A0;
 volatile bool isRunning = false;
 volatile bool isTiming = false;
 volatile bool isPasuing = true;
-volatile bool isScreenWarning = false;
-volatile bool isLightWarning = false;
+volatile bool isFirstStarting = true;
+
 int seconds = 0;
 int distance = 0;
 int lightLevel = 0;
@@ -44,6 +44,9 @@ void WorkingTask(void *pvParameters){
     } else {
       digitalWrite(greenLED, LOW); // 关闭绿灯
       digitalWrite(redLED, HIGH); // 开启红灯
+      if (seconds > 0){
+
+      }
     }
     vTaskDelay(pdMS_TO_TICKS(100)); // 每 100ms 检查一次状态
   }
@@ -100,9 +103,7 @@ void UltrasonicTask(void *pvParameters) {
       distance = duration * 0.0344 / 2;
 
       if (distance < 50) {
-        isScreenWarning = true;
-      } else {
-        isScreenWarning = false;
+        playFile("/screen.mp3", 4000);
       }
     }
     vTaskDelay(500 / portTICK_PERIOD_MS); // 每500ms循环一次
@@ -114,10 +115,8 @@ void LightSensorTask(void *pvParameters) {
   for (;;) {
     if (isRunning && isPasuing == false) { // 检查 isRunning 状态
       lightLevel = analogRead(lightSensorPin);
-      if (lightLevel > 500) {
-        isLightWarning = false;
-      } else {
-        isLightWarning = true;
+      if (lightLevel < 500) {
+         playFile("/light.mp3", 9000);
       }
     }
     vTaskDelay(500 / portTICK_PERIOD_MS); // 每500ms循环一次
@@ -126,9 +125,10 @@ void LightSensorTask(void *pvParameters) {
 
 // player task
 void PlayerTask(void *pvParameters) {
-  playerSerial.begin(9600); 
+
 }
 // LCD Task: updates the LCD display
+bool hasFinishedDisplayed = false;
 void LCDTask(void *pvParameters) {
   lcd.init();        // Initialize the LCD
   lcd.backlight();   // Turn on the backlight
@@ -137,38 +137,69 @@ void LCDTask(void *pvParameters) {
   vTaskDelay(1000 / portTICK_PERIOD_MS);  // Wait for 1 second to display "hello world"
 
    for (;;) {
-    lcd.setCursor(0, 1);  // 设置光标位置在第二行
-
+    lcd.setCursor(0, 1);  
+    
+    if (isRunning){
     // 如果计时器正在计时
-    if (isTiming) {
-      unsigned long hours = seconds / 3600;           // 计算小时
-      unsigned long minutes = (seconds % 3600) / 60; // 计算分钟
-      unsigned long displaySeconds = seconds % 60;   // 计算秒数
+      if (isTiming) {
+        unsigned long hours = seconds / 3600;           // 计算小时
+        unsigned long minutes = (seconds % 3600) / 60; // 计算分钟
+        unsigned long displaySeconds = seconds % 60;   // 计算秒数
 
-      // 显示格式为 "HH:MM:SS"
-      if (hours < 10) lcd.print("0");
-      lcd.print(hours);
-      lcd.print(":");
-      if (minutes < 10) lcd.print("0");
-      lcd.print(minutes);
-      lcd.print(":");
-      if (displaySeconds < 10) lcd.print("0");
-      lcd.print(displaySeconds);
-
-      seconds++;  // 增加秒数
-    } else {
-      // 停止计时时，显示"STOP"
-      lcd.print("PAUSED   ");
+        // 显示格式为 "HH:MM:SS"
+        if (hours < 10) lcd.print("0");
+        lcd.print(hours);
+        lcd.print(":");
+        if (minutes < 10) lcd.print("0");
+        lcd.print(minutes);
+        lcd.print(":");
+        if (displaySeconds < 10) lcd.print("0");
+        lcd.print(displaySeconds);
+        lcd.print("        ");
+        seconds++;  // 增加秒数
+      } else {
+        // 停止计时时，显示"STOP"
+        lcd.setCursor(0, 1);
+        lcd.print("                ");
+        lcd.setCursor(0, 1);
+        lcd.print("PAUSED   ");
+      }
+    }
+    else{
+      if(seconds == 0 && isFirstStarting){
+      lcd.print("Ready to start");
+      }
+      else if(seconds == 0 && isFirstStarting == false && !hasFinishedDisplayed && !isFirstStarting){
+        lcd.setCursor(0, 1);
+        lcd.print("Ready to start");
+        hasFinishedDisplayed = true;
+      }
+      else if(seconds != 0)
+      {
+        isFirstStarting = false;
+        hasFinishedDisplayed = false;
+        lcd.setCursor(0, 1);
+        lcd.print("                "); 
+        lcd.setCursor(0, 1);
+        lcd.print("Finished");
+        if (seconds <60){
+          playFile("/"+String(seconds)+"s.mp3", 4000);
+          }
+          else if(seconds < 3600){
+            playFile("/"+String((seconds % 3600) / 60 + 60)+"s.mp3", 4000);
+          }
+          else{
+            playFile("/"+String(((seconds + 59) / 60) * 60)+"s.mp3", 4000);
+          }
+      }
+      seconds = 0;
+      
     }
      vTaskDelay(1000 / portTICK_PERIOD_MS);  // 每秒更新一次LCD显示
      Serial.print("Distance: ");
      Serial.println(distance);
-     Serial.println("Screen warning: ");
-     Serial.println(isScreenWarning);
      Serial.print("Light Level: ");
      Serial.println(lightLevel);
-     Serial.println("Light warning: ");
-     Serial.println(isLightWarning);
    }
 }
 
@@ -176,6 +207,10 @@ void LCDTask(void *pvParameters) {
 
 void setup() {
   Serial.begin(9600);
+  playerSerial.begin(9600);
+  delay(1000);
+  sendCommand("AT+PLAYMODE=3");
+  sendCommand("AT+LED=OFF");
   // Create the LCD task
   xTaskCreate(
     LCDTask,          // Task function
@@ -235,4 +270,14 @@ void setup() {
 
 void loop() {
   // Empty loop since all functionality is managed by FreeRTOS tasks
+}
+
+void playFile(String fileName, unsigned long duration) {
+  sendCommand("AT+PLAYFILE=" + fileName);
+  delay(duration);
+}
+
+void sendCommand(String command) {
+  playerSerial.print(command + "\r\n");
+  Serial.println("Sent: " + command);
 }
