@@ -18,7 +18,6 @@ int lightSensorPin = A0;
 volatile bool isRunning = false;
 volatile bool isTiming = false;
 volatile bool isPasuing = true;
-volatile bool isFirstStarting = true;
 
 int seconds = 0;
 int distance = 0;
@@ -44,9 +43,6 @@ void WorkingTask(void *pvParameters){
     } else {
       digitalWrite(greenLED, LOW); // 关闭绿灯
       digitalWrite(redLED, HIGH); // 开启红灯
-      if (seconds > 0){
-
-      }
     }
     vTaskDelay(pdMS_TO_TICKS(100)); // 每 100ms 检查一次状态
   }
@@ -61,6 +57,8 @@ void IsRunningButtonTask(void *pvParameters) {
     int buttonState = digitalRead(isRunningButton);
     if (buttonState == HIGH && lastButtonState == LOW) {
       isRunning = !isRunning;
+      isTiming = !isTiming;
+      isPasuing = !isPasuing;
       delay(100);  // 防止按钮反弹
     }
     lastButtonState = buttonState;
@@ -123,85 +121,80 @@ void LightSensorTask(void *pvParameters) {
   }
 }
 
-// player task
-void PlayerTask(void *pvParameters) {
-
-}
 // LCD Task: updates the LCD display
 bool hasFinishedDisplayed = false;
+
 void LCDTask(void *pvParameters) {
-  lcd.init();        // Initialize the LCD
-  lcd.backlight();   // Turn on the backlight
-  lcd.clear();       // Clear the display
-  lcd.print("Study Time:");
-  vTaskDelay(1000 / portTICK_PERIOD_MS);  // Wait for 1 second to display "hello world"
+    lcd.init();        // 初始化LCD
+    lcd.backlight();   // 打开背光
+    lcd.clear();       // 清除显示内容
+    lcd.print("Study Time:");
+    vTaskDelay(1000 / portTICK_PERIOD_MS);  // 等待1秒显示
 
-   for (;;) {
-    lcd.setCursor(0, 1);  
-    
-    if (isRunning){
-    // 如果计时器正在计时
-      if (isTiming) {
-        unsigned long hours = seconds / 3600;           // 计算小时
-        unsigned long minutes = (seconds % 3600) / 60; // 计算分钟
-        unsigned long displaySeconds = seconds % 60;   // 计算秒数
+    for (;;) {
+        lcd.setCursor(0, 1);  
 
-        // 显示格式为 "HH:MM:SS"
-        if (hours < 10) lcd.print("0");
-        lcd.print(hours);
-        lcd.print(":");
-        if (minutes < 10) lcd.print("0");
-        lcd.print(minutes);
-        lcd.print(":");
-        if (displaySeconds < 10) lcd.print("0");
-        lcd.print(displaySeconds);
-        lcd.print("        ");
-        seconds++;  // 增加秒数
-      } else {
-        // 停止计时时，显示"STOP"
-        lcd.setCursor(0, 1);
-        lcd.print("                ");
-        lcd.setCursor(0, 1);
-        lcd.print("PAUSED   ");
-      }
+        if (isRunning) {
+            // 如果计时器正在计时
+            if (isTiming) {
+                unsigned long hours = seconds / 3600;           // 计算小时
+                unsigned long minutes = (seconds % 3600) / 60; // 计算分钟
+                unsigned long displaySeconds = seconds % 60;   // 计算秒数
+
+                // 显示格式为 "HH:MM:SS"
+                if (hours < 10) lcd.print("0");
+                lcd.print(hours);
+                lcd.print(":");
+                if (minutes < 10) lcd.print("0");
+                lcd.print(minutes);
+                lcd.print(":");
+                if (displaySeconds < 10) lcd.print("0");
+                lcd.print(displaySeconds);
+                lcd.print("        ");
+                seconds++;  // 增加秒数
+            } else {
+                // 停止计时时，显示 "PAUSED"
+                lcd.setCursor(0, 1);
+                lcd.print("                ");
+                lcd.setCursor(0, 1);
+                lcd.print("PAUSED   ");
+            }
+        } else {
+            if (seconds == 0 ) {
+                lcd.print("Ready to start");
+            } else if (seconds == 0 && !hasFinishedDisplayed) {
+                lcd.setCursor(0, 1);
+                lcd.print("Ready to start");
+                hasFinishedDisplayed = true;
+            } else if (seconds != 0) {
+                // 确保只播放正确的音频文件
+                unsigned long tempSeconds = seconds; // 备份 seconds 避免 Race Condition
+                hasFinishedDisplayed = false;
+                lcd.setCursor(0, 1);
+                lcd.print("                ");
+                lcd.setCursor(0, 1);
+                lcd.print("Finished");
+
+                if (tempSeconds < 60) {
+                    playFile("/" + String(tempSeconds) + "s.mp3", 4000);
+                } else if (tempSeconds < 3600) {
+                    playFile("/" + String((tempSeconds / 60 + ((tempSeconds % 60 > 30) ? 1 : 0))*60) + "s.mp3", 4000);
+                } else {
+                    playFile("/" + String(convertToRoundedSeconds(tempSeconds)) + "s.mp3", 4000);
+                }
+
+                seconds = 0; 
+            }
+        }
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);  // 每秒更新一次LCD显示
+        Serial.print("Distance: ");
+        Serial.println(distance);
+        Serial.print("Light Level: ");
+        Serial.println(lightLevel);
     }
-    else{
-      if(seconds == 0 && isFirstStarting){
-      lcd.print("Ready to start");
-      }
-      else if(seconds == 0 && isFirstStarting == false && !hasFinishedDisplayed && !isFirstStarting){
-        lcd.setCursor(0, 1);
-        lcd.print("Ready to start");
-        hasFinishedDisplayed = true;
-      }
-      else if(seconds != 0)
-      {
-        isFirstStarting = false;
-        hasFinishedDisplayed = false;
-        lcd.setCursor(0, 1);
-        lcd.print("                "); 
-        lcd.setCursor(0, 1);
-        lcd.print("Finished");
-        if (seconds <60){
-          playFile("/"+String(seconds)+"s.mp3", 4000);
-          }
-          else if(seconds < 3600){
-            playFile("/"+String((seconds % 3600) / 60 + 60)+"s.mp3", 4000);
-          }
-          else{
-            playFile("/"+String(((seconds + 59) / 60) * 60)+"s.mp3", 4000);
-          }
-      }
-      seconds = 0;
-      
-    }
-     vTaskDelay(1000 / portTICK_PERIOD_MS);  // 每秒更新一次LCD显示
-     Serial.print("Distance: ");
-     Serial.println(distance);
-     Serial.print("Light Level: ");
-     Serial.println(lightLevel);
-   }
 }
+
 
 
 
@@ -280,4 +273,14 @@ void playFile(String fileName, unsigned long duration) {
 void sendCommand(String command) {
   playerSerial.print(command + "\r\n");
   Serial.println("Sent: " + command);
+}
+
+int convertToRoundedSeconds(int seconds) {
+    // 计算小时部分
+    int hours = seconds / 3600;
+    // 计算分钟部分并四舍五入
+    int minutes = (seconds % 3600 + 30) / 60;
+    // 转换为总秒数
+    int total_seconds = hours * 3600 + minutes * 60;
+    return total_seconds;
 }
