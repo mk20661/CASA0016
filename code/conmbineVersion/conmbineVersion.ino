@@ -7,22 +7,23 @@
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 SoftwareSerial playerSerial(2, 3); // RX, TX
 //Defein pin port
-int greenLED = 8;
-int redLED = 13; 
-int isRunningButton = 11;
-int isPausedButton = 12;
-int echoPin = 9;
-int trigPin = 10;
-int lightSensorPin = A0; 
+#define greenLED  8
+#define redLED  13
+#define isRunningButton  11
+#define isPausedButton  12
+#define echoPin  9
+#define trigPin  10
+#define lightSensorPin  A0 
 //State of different sensor
 volatile bool isRunning = false;
 volatile bool isTiming = false;
 volatile bool isPasuing = true;
 
+
 int seconds = 0;
 int distance = 0;
 int lightLevel = 0;
-// Task handle for the LCD task
+// Tasks handle
 TaskHandle_t WorkTaskHandle;
 TaskHandle_t LCDTaskHandle;
 TaskHandle_t IsRunningButtonTaskHandle;
@@ -36,15 +37,15 @@ void WorkingTask(void *pvParameters){
   pinMode(greenLED, OUTPUT);
   pinMode(redLED, OUTPUT);
   for (;;) {
-    // 根据 isRunning 状态控制红灯和绿灯
+    // control red and green led
     if (isRunning) {
-      digitalWrite(greenLED, HIGH); // 开启绿灯
-      digitalWrite(redLED, LOW);   // 关闭红灯
+      digitalWrite(greenLED, HIGH); // turn on green
+      digitalWrite(redLED, LOW);   // 
     } else {
-      digitalWrite(greenLED, LOW); // 关闭绿灯
-      digitalWrite(redLED, HIGH); // 开启红灯
+      digitalWrite(greenLED, LOW); // 
+      digitalWrite(redLED, HIGH); // turn on grern
     }
-    vTaskDelay(pdMS_TO_TICKS(100)); // 每 100ms 检查一次状态
+    vTaskDelay(pdMS_TO_TICKS(100)); // check every 100ms
   }
 }
 
@@ -59,10 +60,10 @@ void IsRunningButtonTask(void *pvParameters) {
       isRunning = !isRunning;
       isTiming = !isTiming;
       isPasuing = !isPasuing;
-      delay(100);  // 防止按钮反弹
+      delay(100);  // debounce 
     }
     lastButtonState = buttonState;
-    vTaskDelay(100 / portTICK_PERIOD_MS);  // 每100ms检测一次按钮
+    vTaskDelay(100 / portTICK_PERIOD_MS); 
   }
 }
 
@@ -73,24 +74,24 @@ void IsPausedButtonTask(void *pvParameters) {
   for (;;) {
     int buttonState = digitalRead(isPausedButton);
 
-    // 检查按钮按下，同时确保 isRunning 为 true（绿灯亮）
+    // check button
     if (buttonState == HIGH && lastButtonState == LOW && isRunning) {
-      isTiming = !isTiming; // 切换计时器状态
+      isTiming = !isTiming; // 
       isPasuing  = !isPasuing;
-      delay(100);           // 防止按钮反弹
+      delay(100);           
     }
     lastButtonState = buttonState;
 
-    vTaskDelay(100 / portTICK_PERIOD_MS); // 每100ms检测一次按钮
+    vTaskDelay(100 / portTICK_PERIOD_MS); 
   }
 }
-
+//distance detection
 void UltrasonicTask(void *pvParameters) {
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
   
   for (;;) {
-    if (isRunning && isPasuing == false) { // 检查 isRunning 状态
+    if (isRunning && isPasuing == false) { 
       digitalWrite(trigPin, LOW);
       delayMicroseconds(2);
       digitalWrite(trigPin, HIGH);
@@ -104,20 +105,20 @@ void UltrasonicTask(void *pvParameters) {
         playFile("/screen.mp3", 4000);
       }
     }
-    vTaskDelay(500 / portTICK_PERIOD_MS); // 每500ms循环一次
+    vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
 
-//
+// light  detection use LDR
 void LightSensorTask(void *pvParameters) {
   for (;;) {
-    if (isRunning && isPasuing == false) { // 检查 isRunning 状态
+    if (isRunning && isPasuing == false) { // only running in running status
       lightLevel = analogRead(lightSensorPin);
       if (lightLevel < 500) {
          playFile("/light.mp3", 9000);
       }
     }
-    vTaskDelay(500 / portTICK_PERIOD_MS); // 每500ms循环一次
+    vTaskDelay(500 / portTICK_PERIOD_MS); 
   }
 }
 
@@ -125,23 +126,23 @@ void LightSensorTask(void *pvParameters) {
 bool hasFinishedDisplayed = false;
 
 void LCDTask(void *pvParameters) {
-    lcd.init();        // 初始化LCD
-    lcd.backlight();   // 打开背光
-    lcd.clear();       // 清除显示内容
+    lcd.init();        // init lcd
+    lcd.backlight();   //back light
+    lcd.clear();       // clear lcd
     lcd.print("Study Time:");
-    vTaskDelay(1000 / portTICK_PERIOD_MS);  // 等待1秒显示
+    vTaskDelay(1000 / portTICK_PERIOD_MS);  
 
     for (;;) {
         lcd.setCursor(0, 1);  
 
         if (isRunning) {
-            // 如果计时器正在计时
+            // timer running
             if (isTiming) {
-                unsigned long hours = seconds / 3600;           // 计算小时
-                unsigned long minutes = (seconds % 3600) / 60; // 计算分钟
-                unsigned long displaySeconds = seconds % 60;   // 计算秒数
+                unsigned long hours = seconds / 3600;           // hours
+                unsigned long minutes = (seconds % 3600) / 60; // mins
+                unsigned long displaySeconds = seconds % 60;   // seconds
 
-                // 显示格式为 "HH:MM:SS"
+                // format "HH:MM:SS"
                 if (hours < 10) lcd.print("0");
                 lcd.print(hours);
                 lcd.print(":");
@@ -151,11 +152,11 @@ void LCDTask(void *pvParameters) {
                 if (displaySeconds < 10) lcd.print("0");
                 lcd.print(displaySeconds);
                 lcd.print("        ");
-                seconds++;  // 增加秒数
+                seconds++; 
             } else {
-                // 停止计时时，显示 "PAUSED"
+                // stop timiing, display paused
                 lcd.setCursor(0, 1);
-                lcd.print("                ");
+                lcd.print("                ");//clear time display 
                 lcd.setCursor(0, 1);
                 lcd.print("PAUSED   ");
             }
@@ -167,8 +168,7 @@ void LCDTask(void *pvParameters) {
                 lcd.print("Ready to start");
                 hasFinishedDisplayed = true;
             } else if (seconds != 0) {
-                // 确保只播放正确的音频文件
-                unsigned long tempSeconds = seconds; // 备份 seconds 避免 Race Condition
+                unsigned long tempSeconds = seconds; // race condition 
                 hasFinishedDisplayed = false;
                 lcd.setCursor(0, 1);
                 lcd.print("                ");
@@ -187,7 +187,7 @@ void LCDTask(void *pvParameters) {
             }
         }
 
-        vTaskDelay(1000 / portTICK_PERIOD_MS);  // 每秒更新一次LCD显示
+        vTaskDelay(1000 / portTICK_PERIOD_MS); //upate 1 s
         Serial.print("Distance: ");
         Serial.println(distance);
         Serial.print("Light Level: ");
@@ -204,13 +204,14 @@ void setup() {
   delay(1000);
   sendCommand("AT+PLAYMODE=3");
   sendCommand("AT+LED=OFF");
+  sendCommand("AT+VOL=13");
   // Create the LCD task
   xTaskCreate(
     LCDTask,          // Task function
     "LCDTask",        // Task name
-    128,              // Stack size (in words, not bytes)
-    NULL,             // Task parameters (none in this case)
-    1,                // Task priority
+    128,              // Stack size
+    NULL,             // Task parameters 
+    4,                // Task priority
     &LCDTaskHandle    // Task handle to manage the task
   );
 
@@ -219,7 +220,7 @@ void setup() {
     "isRunningButtonTask", 
     128, 
     NULL, 
-    1, 
+    4, 
     &IsRunningButtonTaskHandle
   );
 
@@ -228,7 +229,7 @@ void setup() {
     "isPausedButtonTask", 
     128, 
     NULL, 
-    1, 
+    4, 
     &IsPausedButtonTaskHandle
   );
 
@@ -237,7 +238,7 @@ void setup() {
    "LED Control", 
    128, 
    NULL, 
-   1, 
+   4, 
    &WorkTaskHandle);
 
    xTaskCreate(
@@ -245,7 +246,7 @@ void setup() {
     "UltrasonicTask", 
     128, 
     NULL, 
-    1, 
+    2, 
     &UltrasonicTaskHandle
     );
 
@@ -253,7 +254,7 @@ void setup() {
     "LightSensorTask", 
     128, 
     NULL, 
-    1, 
+    2, 
     &LightSensorTaskHandle
     );
 
@@ -274,13 +275,11 @@ void sendCommand(String command) {
   playerSerial.print(command + "\r\n");
   Serial.println("Sent: " + command);
 }
-
+//convert to seconds
 int convertToRoundedSeconds(int seconds) {
-    // 计算小时部分
     int hours = seconds / 3600;
-    // 计算分钟部分并四舍五入
     int minutes = (seconds % 3600 + 30) / 60;
-    // 转换为总秒数
+    // trnasfer to total seconds
     int total_seconds = hours * 3600 + minutes * 60;
     return total_seconds;
 }
