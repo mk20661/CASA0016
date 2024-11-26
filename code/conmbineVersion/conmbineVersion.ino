@@ -30,7 +30,7 @@ TaskHandle_t IsRunningButtonTaskHandle;
 TaskHandle_t IsPausedButtonTaskHandle;
 TaskHandle_t UltrasonicTaskHandle;
 TaskHandle_t LightSensorTaskHandle;
-TaskHandle_t PlayerTaskHandle;
+TaskHandle_t RestTaskHandle;
 
 //Working state task
 void WorkingTask(void *pvParameters){
@@ -101,7 +101,7 @@ void UltrasonicTask(void *pvParameters) {
       long duration = pulseIn(echoPin, HIGH);
       distance = duration * 0.0344 / 2;
 
-      if (distance < 50) {
+      if (distance < 40) {
         playFile("/screen.mp3", 4000);
       }
     }
@@ -120,6 +120,17 @@ void LightSensorTask(void *pvParameters) {
     }
     vTaskDelay(500 / portTICK_PERIOD_MS); 
   }
+}
+
+//Study continuously for an hour,need to have a break
+void RestTask(void *pvParameters){
+ for(;;){
+  unsigned long tempSeconds = seconds;
+  if (tempSeconds % 3600 == 0 && tempSeconds != 0){
+     playFile("/time.mp3", 7000);
+  }
+  vTaskDelay(500 / portTICK_PERIOD_MS); 
+ }
 }
 
 // LCD Task: updates the LCD display
@@ -257,6 +268,15 @@ void setup() {
     2, 
     &LightSensorTaskHandle
     );
+
+    xTaskCreate(RestTask, 
+    "RestTask", 
+    128, 
+    NULL, 
+    2, 
+    &RestTaskHandle
+    );
+
 
   // Start the FreeRTOS scheduler
   vTaskStartScheduler();
