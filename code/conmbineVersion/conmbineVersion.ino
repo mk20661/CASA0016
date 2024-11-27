@@ -59,7 +59,9 @@ void IsRunningButtonTask(void *pvParameters) {
     if (buttonState == HIGH && lastButtonState == LOW) {
       isRunning = !isRunning;
       isTiming = !isTiming;
-      isPasuing = !isPasuing;
+      if (isPasuing){
+        isPasuing = !isPasuing;
+      }
       delay(100);  // debounce 
     }
     lastButtonState = buttonState;
@@ -185,7 +187,8 @@ void LCDTask(void *pvParameters) {
                 lcd.print("                ");
                 lcd.setCursor(0, 1);
                 lcd.print("Finished");
-
+                isTiming = false;
+                isPasuing = true;
                 if (tempSeconds < 60) {
                     playFile("/" + String(tempSeconds) + "s.mp3", 4000);
                 } else if (tempSeconds < 3600) {
