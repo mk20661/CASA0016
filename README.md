@@ -25,12 +25,11 @@ This is the **CASA0016 Coursework**.
 - **IDE**: 
     - `Arduino IDE`
 - **Libraries**: 
-    - `Adafruit_GFX` 
-    - `WiFiNINA`
+    - `SoftwareSerial.h` 
+    - `LiquidCrystal_I2C.h`
     - `Wire`
-    - `Adafruit_SSD1306`
-    - `WiFiNINA`
-    - `PubSubClient`
+    - `Arduino_FreeRTOS.h`
+
 ---
 ## Progress and Roadmap 🗓
 - [x] Light sensor test
