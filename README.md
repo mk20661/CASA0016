@@ -24,10 +24,10 @@
 
 ##### Circuit Diagram
 <div align="center">
-<img src="./ReadMeSrc/cirucit2.png" alt="circuit" width="" height="500">
+<img src="./readmeSrc/cirucit2.png" alt="circuit" height="500">
 </div>
 
 ##### Work Flow
 <div align="center">
-<img src="./ReadMeSrc/workflow.png" alt="circuit">
+<img src="./readmeSrc/workflow.png" alt="circuit">
 </div>
